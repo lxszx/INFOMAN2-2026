@@ -1,0 +1,18 @@
+ALTER TABLE users
+    ADD COLUMN password_hash VARCHAR(80) NOT NULL,
+    ADD COLUMN date_created TIMESTAMP DEFAULT NOW();
+
+
+CREATE TABLE roles (
+    id SERIAL PRIMARY KEY,
+    role_name VARCHAR(40) UNIQUE NOT NULL,
+    date_created TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE user_roles (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    role_id INT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON UPDATE CASCADE ON DELETE SET NULL
+);
