@@ -1,11 +1,10 @@
--- Customers
 CREATE TABLE public.customers (
     id INT PRIMARY KEY,
     full_name TEXT NOT NULL,
     region_code TEXT
 );
 
--- Products
+
 CREATE TABLE public.products (
     id INT PRIMARY KEY,
     product_name TEXT NOT NULL,
@@ -13,7 +12,7 @@ CREATE TABLE public.products (
     unit_price NUMERIC(10,2)
 );
 
--- Branches
+
 CREATE TABLE public.branches (
     id INT PRIMARY KEY,
     branch_name TEXT NOT NULL,
@@ -21,7 +20,7 @@ CREATE TABLE public.branches (
     region TEXT
 );
 
--- Sales Transactions
+
 CREATE TABLE public.sales_txn (
     id INT PRIMARY KEY,
     txn_date DATE NOT NULL,
