@@ -41,6 +41,7 @@ fact_sales.branch_key → dim_branch.branch_key
 
 ## Part 2: Warehouse DDL
 
+```sql
 CREATE SCHEMA IF NOT EXISTS dw;
 
 CREATE TABLE dw.dim_date (
@@ -95,22 +96,28 @@ CREATE TABLE dw.etl_log (
     error_message TEXT
 );
 
-CREATE INDEX idx_fact_sales_date ON dw.fact_sales(date_key);
-CREATE INDEX idx_fact_sales_branch ON dw.fact_sales(branch_key);
+CREATE INDEX idx_fact_sales_date 
+    ON dw.fact_sales(date_key);
+
+CREATE INDEX idx_fact_sales_branch 
+    ON dw.fact_sales(branch_key);
+```
 
 ## Part 3: ETL Procedure
 
 ### 1. Procedure Code
 
+```sql
 CREATE OR REPLACE PROCEDURE dw.run_sales_etl()
 LANGUAGE plpgsql
 AS $$
 DECLARE
     v_rows_loaded INT := 0;
 BEGIN
-    -- Load dim_date
+
     INSERT INTO dw.dim_date(txn_date, year, quarter, month, day, weekday)
-    SELECT DISTINCT txn_date,
+    SELECT DISTINCT 
+        txn_date,
         EXTRACT(YEAR FROM txn_date)::INT,
         EXTRACT(QUARTER FROM txn_date)::INT,
         EXTRACT(MONTH FROM txn_date)::INT,
@@ -119,34 +126,50 @@ BEGIN
     FROM public.sales_txn s
     ON CONFLICT (txn_date) DO NOTHING;
 
-    -- Load dim_customer
     INSERT INTO dw.dim_customer(source_id, full_name, region_code)
-    SELECT id, full_name, region_code
+    SELECT 
+        id,
+        full_name,
+        region_code
     FROM public.customers
     ON CONFLICT (source_id) DO UPDATE
         SET full_name = EXCLUDED.full_name,
             region_code = EXCLUDED.region_code;
 
-    -- Load dim_product
     INSERT INTO dw.dim_product(source_id, product_name, category, unit_price)
-    SELECT id, product_name, category, unit_price
+    SELECT 
+        id,
+        product_name,
+        category,
+        unit_price
     FROM public.products
     ON CONFLICT (source_id) DO UPDATE
         SET product_name = EXCLUDED.product_name,
             category = EXCLUDED.category,
             unit_price = EXCLUDED.unit_price;
 
-    -- Load dim_branch
     INSERT INTO dw.dim_branch(source_id, branch_name, city, region)
-    SELECT id, branch_name, city, region
+    SELECT 
+        id,
+        branch_name,
+        city,
+        region
     FROM public.branches
     ON CONFLICT (source_id) DO UPDATE
         SET branch_name = EXCLUDED.branch_name,
             city = EXCLUDED.city,
             region = EXCLUDED.region;
 
-    -- Load fact_sales incrementally
-    INSERT INTO dw.fact_sales(date_key, customer_key, product_key, branch_key, qty, unit_price, total_amount, source_id)
+    INSERT INTO dw.fact_sales(
+        date_key,
+        customer_key,
+        product_key,
+        branch_key,
+        qty,
+        unit_price,
+        total_amount,
+        source_id
+    )
     SELECT 
         d.date_key,
         c.customer_key,
@@ -157,17 +180,20 @@ BEGIN
         s.qty * s.unit_price,
         s.id
     FROM public.sales_txn s
-    JOIN dw.dim_date d ON s.txn_date = d.txn_date
-    JOIN dw.dim_customer c ON s.customer_id = c.source_id
-    JOIN dw.dim_product p ON s.product_id = p.source_id
-    JOIN dw.dim_branch b ON s.branch_id = b.source_id
+    JOIN dw.dim_date d 
+        ON s.txn_date = d.txn_date
+    JOIN dw.dim_customer c 
+        ON s.customer_id = c.source_id
+    JOIN dw.dim_product p 
+        ON s.product_id = p.source_id
+    JOIN dw.dim_branch b 
+        ON s.branch_id = b.source_id
     WHERE s.id NOT IN (SELECT source_id FROM dw.fact_sales)
       AND s.qty > 0
       AND s.unit_price > 0;
 
     GET DIAGNOSTICS v_rows_loaded = ROW_COUNT;
 
-    -- Log success
     INSERT INTO dw.etl_log(status, rows_loaded)
     VALUES ('SUCCESS', v_rows_loaded);
 
@@ -175,51 +201,77 @@ EXCEPTION
     WHEN OTHERS THEN
         INSERT INTO dw.etl_log(status, rows_loaded, error_message)
         VALUES ('FAIL', 0, SQLERRM);
+
 END;
 $$;
+```
 
 ### 2. Procedure Execution
 
-![](/activity8/images/image1.png)
+![](/activity8/images/image2.png)
 
 ### 3. ETL Log Output
 
-```sql
-SELECT * FROM dw.etl_log ORDER BY run_ts DESC;
-```
-
-```txt
--- Paste output here
-```
+![](/activity8/images/image1.png)
 
 ## Part 4: Analytical Queries
 
 ### Query 1: Monthly Revenue by Branch Region
 
 ```sql
--- SQL here
+SELECT
+    d.year,
+    d.month,
+    b.region,
+    SUM(f.total_amount) AS monthly_revenue
+FROM dw.fact_sales f
+JOIN dw.dim_date d 
+    ON f.date_key = d.date_key
+JOIN dw.dim_branch b 
+    ON f.branch_key = b.branch_key
+GROUP BY 
+    d.year, 
+    d.month, 
+    b.region
+ORDER BY 
+    d.year, 
+    d.month;
 ```
 
-Interpretation:
+Interpretation: This query returns the total sales income earned by region for each month. Management may use this data to evaluate which sites perform best over time.
 
-<1-2 sentence interpretation>
 
 ### Query 2: Top 5 Products by Total Revenue
 
 ```sql
--- SQL here
+SELECT
+    p.product_name,
+    SUM(f.total_amount) AS total_revenue
+FROM dw.fact_sales f
+JOIN dw.dim_product p 
+    ON f.product_key = p.product_key
+GROUP BY 
+    p.product_name
+ORDER BY 
+    total_revenue DESC
+LIMIT 5;
 ```
 
-Interpretation:
-
-<1-2 sentence interpretation>
+Interpretation: This query finds the five goods that generate the most money. It assists management in selecting the most profitable menu items.
 
 ### Query 3: Customer Region Contribution to Sales
 
 ```sql
--- SQL here
+SELECT
+    c.region_code,
+    SUM(f.total_amount) AS region_sales
+FROM dw.fact_sales f
+JOIN dw.dim_customer c 
+    ON f.customer_key = c.customer_key
+GROUP BY 
+    c.region_code
+ORDER BY 
+    region_sales DESC;
 ```
 
-Interpretation:
-
-<1-2 sentence interpretation>
+Interpretation: This query displays the total income generated by each client area. It assists the organization in determining which regions contribute the most to overall sales.

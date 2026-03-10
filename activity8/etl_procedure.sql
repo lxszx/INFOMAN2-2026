@@ -67,4 +67,4 @@ EXCEPTION
         INSERT INTO dw.etl_log(status, rows_loaded, error_message)
         VALUES ('FAIL', 0, SQLERRM);
 END;
-$$;
+$$; 
