@@ -87,4 +87,17 @@ db.inventory.find({ ratings: 5 })
 ---
 
 ## Screenshots
-> Attach your screenshots here showing the results of your queries in the terminal.
+
+![](/activity11/images/image1.png)
+
+![](/activity11/images/image2.png)
+
+![](/activity11/images/image3.png)
+
+![](/activity11/images/image4.png)
+
+![](/activity11/images/image5.png)
+
+![](/activity11/images/image6.png)
+
+![](/activity11/images/image79.png)
